@@ -21,10 +21,10 @@ jobs:
         run: |
           cd tests
           python -m pytest test_etl.py -v
-      - name: Lint SQL/Hive scripts
+      - name: Lint SQL/Hive scripts with sqlfluff
         run: |
-          pip install sql-lint
-          sql-lint ../scripts/hive_query.sql
+          pip install sqlfluff
+          sqlfluff lint ../scripts/hive_query.sql --dialect hive
 
   deploy:
     needs: test
