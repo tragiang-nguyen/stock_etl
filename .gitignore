@@ -1,0 +1,23 @@
+# Logs and temp
+airflow/logs/
+hive-metastore.log
+metastore_db/
+*.log
+*.pid
+
+# Binaries and large dirs
+apache-hive-2.3.9-bin/
+hadoop/
+spark/
+package-lock.json
+
+# Temp and build
+/tmp/
+/data/
+*.jar
+*.so
+*.dll
+
+# OS
+.DS_Store
+Thumbs.db
