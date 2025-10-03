@@ -16,15 +16,14 @@ jobs:
           python-version: '3.12'
       - name: Install dependencies
         run: |
-          pip install pyspark==3.5.1 pytest
+          pip install pyspark==3.5.1 pytest sqlfluff
       - name: Run PySpark ETL tests
         run: |
           cd tests
           python -m pytest test_etl.py -v
       - name: Lint SQL/Hive scripts with sqlfluff
         run: |
-          pip install sqlfluff
-          sqlfluff lint ../scripts/hive_query.sql --dialect hive
+          sqlfluff lint scripts/hive_query.sql --dialect hive
 
   deploy:
     needs: test
