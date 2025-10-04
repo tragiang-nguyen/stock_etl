@@ -1,7 +1,10 @@
 from airflow import DAG
 from airflow.operators.bash import BashOperator
 from airflow.providers.postgres.operators.postgres import PostgresOperator
+from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
+import re
+import os
 
 default_args = {
     'owner': 'user',
@@ -36,14 +39,16 @@ with DAG(
         task_id='run_pyspark',
         bash_command='export HADOOP_CONF_DIR=/mnt/d/projects/stock_project/hadoop/etc/hadoop/ && spark-submit --master yarn --deploy-mode client --conf spark.eventLog.enabled=false /mnt/d/projects/stock_project/scripts/etl.py',
     )
-    measure_before = PostgresOperator(
+    
+    # Measure before: Use BashOperator to capture output to file
+    measure_before = BashOperator(
         task_id='measure_before',
-        postgres_conn_id='postgres_default',
-        sql="""
-        EXPLAIN ANALYZE SELECT * FROM stock_data WHERE tstamp > '2025-10-01';
+        bash_command="""
+        psql -U datauser -d airflow -h localhost -c "EXPLAIN ANALYZE SELECT * FROM stock_data WHERE tstamp > '2025-10-01';" > /tmp/measure_before.log 2>&1
         """,
         dag=dag
     )
+
     optimize_indexes = PostgresOperator(
         task_id='optimize_indexes',
         postgres_conn_id='postgres_default',
@@ -58,6 +63,7 @@ with DAG(
         """,
         dag=dag
     )
+
     vacuum_analyze = PostgresOperator(
         task_id='vacuum_analyze',
         postgres_conn_id='postgres_default',
@@ -68,13 +74,59 @@ with DAG(
         dag=dag
     )
 
-    measure_after = PostgresOperator(
+    # Measure after: Use BashOperator to capture output to file
+    measure_after = BashOperator(
         task_id='measure_after',
-        postgres_conn_id='postgres_default',
-        sql="""
-        EXPLAIN ANALYZE SELECT * FROM stock_data WHERE tstamp > '2025-10-01';
+        bash_command="""
+        psql -U datauser -d airflow -h localhost -c "EXPLAIN ANALYZE SELECT * FROM stock_data WHERE tstamp > '2025-10-01';" > /tmp/measure_after.log 2>&1
         """,
         dag=dag
     )
 
-    scrape_stock >> run_mapreduce >> run_hive >> run_pyspark >> measure_before >> optimize_indexes >> vacuum_analyze >> measure_after
+    # New task: Parse files and print BEFORE_TIME, AFTER_TIME, and % reduction
+    def parse_and_print_times(**context):
+        before_log = '/tmp/measure_before.log'
+        after_log = '/tmp/measure_after.log'
+        
+        # Read before log
+        if os.path.exists(before_log):
+            with open(before_log, 'r') as f:
+                before_content = f.read()
+            before_match = re.search(r'Execution Time: ([\d.]+) ms', before_content)
+            before_time = float(before_match.group(1)) if before_match else None
+        else:
+            before_time = None
+        
+        # Read after log
+        if os.path.exists(after_log):
+            with open(after_log, 'r') as f:
+                after_content = f.read()
+            after_match = re.search(r'Execution Time: ([\d.]+) ms', after_content)
+            after_time = float(after_match.group(1)) if after_match else None
+        else:
+            after_time = None
+        
+        # Print times
+        print(f"BEFORE_TIME: {before_time} ms" if before_time else "BEFORE_TIME: Not found")
+        print(f"AFTER_TIME: {after_time} ms" if after_time else "AFTER_TIME: Not found")
+        
+        # Calculate % reduction if both available
+        if before_time and after_time and before_time > 0:
+            reduction = ((before_time - after_time) / before_time) * 100
+            print(f"Phần trăm giảm: {reduction:.2f}%")
+        else:
+            print("Không thể tính % giảm (thiếu before/after time).")
+        
+        # Cleanup temp files
+        if os.path.exists(before_log):
+            os.remove(before_log)
+        if os.path.exists(after_log):
+            os.remove(after_log)
+
+    print_times_task = PythonOperator(
+        task_id='print_times',
+        python_callable=parse_and_print_times,
+        dag=dag
+    )
+
+    scrape_stock >> run_mapreduce >> run_hive >> run_pyspark >> measure_before >> optimize_indexes >> vacuum_analyze >> measure_after >> print_times_task
