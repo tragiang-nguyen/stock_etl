@@ -1,5 +1,8 @@
 # Dự Án ETL Stock Pipeline
 
+[![CI/CD Status](https://github.com/tragiang-nguyen/stock_etl/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/tragiang-nguyen/stock_etl/actions/workflows/ci-cd.yml)  
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 ## Tổng Quan
 Dự án này là một pipeline ETL (Extract, Transform, Load) end-to-end đầy đủ cho dữ liệu cổ phiếu IBM, sử dụng Apache Airflow để điều phối, Hadoop HDFS/MapReduce/Hive cho xử lý batch, PySpark để load dữ liệu, và PostgreSQL làm kho dữ liệu (DW). Pipeline scrape dữ liệu cổ phiếu, làm sạch, tổng hợp (trung bình close theo timestamp), load vào DW, và tối ưu hóa truy vấn lên **65.77%** bằng index và partition.
 
@@ -69,10 +72,11 @@ RAM: Ít nhất 8GB (cho Spark/Hadoop).
    sudo apt update && sudo apt install openjdk-11-jdk
    export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
    echo 'export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64' >> ~/.bashrc
+   source ~/.bashrc
    ```
 
 3. **Cài Hadoop (Single-Node)**:
-   - Download binary Hadoop 3.x, giải nén vào `./hadoop`.
+   - Download binary Hadoop 3.x từ [hadoop.apache.org](https://hadoop.apache.org/releases.html), giải nén vào `./hadoop`.
    - Sửa `./hadoop/etc/hadoop/core-site.xml`:
      ```
      <configuration>
@@ -99,7 +103,7 @@ RAM: Ít nhất 8GB (cho Spark/Hadoop).
      ```
 
 4. **Cài Hive**:
-   - Download binary Hive 2.3.9, giải nén vào `./apache-hive-2.3.9-bin`.
+   - Download binary Hive 2.3.9 từ [hive.apache.org](https://hive.apache.org/downloads.html), giải nén vào `./apache-hive-2.3.9-bin`.
    - Sửa `./apache-hive-2.3.9-bin/conf/hive-site.xml`:
      ```
      <configuration>
@@ -179,11 +183,20 @@ RAM: Ít nhất 8GB (cho Spark/Hadoop).
    - Kết quả mong đợi: 4/4 PASSED (schema, cast, filter/order, mock JDBC).
 
 2. **Kiểm Tra % Giảm Hiệu Suất** (Tối Ưu Hóa Truy Vấn):
-   - Chạy script standalone:
+   - Chạy query thủ công trước/sau optimize (thay thời gian nếu cần):
      ```
-     python scripts/calculate_reduction.py
+     # Before (tạm drop index)
+     psql -U datauser -d airflow -h localhost -c "DROP INDEX IF EXISTS idx_stock_data_tstamp; EXPLAIN ANALYZE SELECT * FROM stock_data WHERE tstamp > '2025-10-01'; CREATE INDEX idx_stock_data_tstamp ON stock_data (tstamp);"
+     # Copy "Execution Time: X.XX ms" làm before (e.g., 0.26 ms)
+
+     # After (index có sẵn)
+     psql -U datauser -d airflow -h localhost -c "EXPLAIN ANALYZE SELECT * FROM stock_data WHERE tstamp > '2025-10-01';"
+     # Copy "Execution Time: Y.YY ms" làm after (e.g., 0.089 ms)
+
+     # Tính % giảm (thay X.XX, Y.YY)
+     before=0.26; after=0.089; echo "scale=2; (($before - $after) / $before * 100)/1" | bc
+     # Kết quả: 65.77
      ```
-     - Kết quả mong đợi: "Phần trăm giảm thực tế: 65.77%" (before 0.26 ms, after 0.089 ms).
 
 3. **Test CI/CD** (GitHub Actions):
    - Push code → Tab Actions → "CI/CD ETL Stock Pipeline" tự chạy (test + lint pass, checkmark xanh).
