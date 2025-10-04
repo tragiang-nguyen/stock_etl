@@ -243,6 +243,3 @@ RAM: Ít nhất 8GB (cho Spark/Hadoop).
 - **CI/CD**: GitHub Actions xanh (4 test pass, lint SQL success).
 
 ---
-Nếu họ cung cấp output/screenshot khớp (~4380 rows, ~53% giảm, 4 tests pass, green Actions), chứng tỏ họ chạy thực tế (không fake). Nếu không, hỏi "Kẹt ở bước nào?" để hướng dẫn.
-
-Dự án giờ **sẵn sàng** – apply job đi! 🚀
