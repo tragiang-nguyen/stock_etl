@@ -1,4 +1,4 @@
-# Dự Án ETL Stock Pipeline
+# ETL Stock Pipeline
 
 [![CI/CD Status](https://github.com/tragiang-nguyen/stock_etl/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/tragiang-nguyen/stock_etl/actions/workflows/ci-cd.yml)
 
