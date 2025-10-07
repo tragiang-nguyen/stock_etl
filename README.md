@@ -12,8 +12,6 @@ Các tính năng chính:
 - CI/CD với GitHub Actions (unit test + lint SQL).
 - Unit test cho PySpark ETL (4/4 pass).
 
-Dự án mô phỏng hệ thống ETL sản xuất (e.g., GCP BigQuery ETL với Cloud Composer), phù hợp cho vị trí Junior Data Engineer.
-
 ## Công Nghệ Sử Dụng
 - **Điều Phối**: Apache Airflow 2.x (DAGs, BashOperator, PostgresOperator, PythonOperator).
 - **Xử Lý Batch**: Hadoop HDFS, MapReduce (Java), Apache Hive (tổng hợp SQL).
